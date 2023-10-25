@@ -1,11 +1,10 @@
-name: pytest-workflow
+name: predication-workflow
 
 on:
-  push
-  #workflow_dispatch:
+  push:
 
 jobs:
-  test_schedule:
+  p_schedule:
     runs-on: ubuntu-latest
     steps:
       - name: checkout repo content
@@ -21,10 +20,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest
-
-      - name: execute python workflows from bash script
+      - name: execute pytest
         env:
           HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
         run: 
-          python -m pytest airpred/
-
+          python -m pytest
