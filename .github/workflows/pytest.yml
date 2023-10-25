@@ -25,4 +25,4 @@ jobs:
           HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
         run: |
           ls
-          python -m pytest /air_pred
+          python -m pytest air_pred/
