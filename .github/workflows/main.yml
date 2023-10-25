@@ -1,0 +1,32 @@
+name: predication-workflow
+
+on:
+  schedule:
+    - cron '59 * * * *'
+  push:
+    [main]
+
+jobs:
+  test_schedule:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout repo content
+        uses: actions/checkout@v2
+
+      - name: setup python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.9.18'
+
+      - name: install python packages
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: execute pipelines
+        env:
+          HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
+        run: 
+          python air_pred/pipeline/online_feature_pipeline.py
+          python air_pred/pipeline/online_inference_pipeline.py
+
