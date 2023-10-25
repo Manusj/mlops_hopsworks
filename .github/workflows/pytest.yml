@@ -1,4 +1,4 @@
-name: predication-workflow
+name: pytest-workflow
 
 on:
   push:
@@ -7,7 +7,9 @@ jobs:
   p_schedule:
     runs-on: ubuntu-latest
     steps:
-
+      - name: checkout repo content
+        uses: actions/checkout@v2
+        
       - name: setup python
         uses: actions/setup-python@v2
         with:
@@ -21,5 +23,5 @@ jobs:
       - name: execute pytest
         env:
           HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
-        run: 
+        run: |
           python -m pytest
