@@ -23,9 +23,9 @@ jobs:
           pip install -r requirements.txt
 
       - name: execute pipelines
-        env: |
+        env: 
           HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
-        run: 
+        run: |
           python air_pred/pipeline/online_feature_pipeline.py
           python air_pred/pipeline/online_inference_pipeline.py
 
