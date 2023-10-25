@@ -25,5 +25,6 @@ jobs:
       - name: execute python workflows from bash script
         env:
           HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
-        run: python -m pytest
+        run: 
+          python -m pytest airpred/
 
