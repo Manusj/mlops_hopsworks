@@ -2,9 +2,8 @@ name: predication-workflow
 
 on:
   schedule:
-    - cron '59 * * * *'
+    - cron: "59 * * * *"
   push:
-    [main]
 
 jobs:
   test_schedule:
