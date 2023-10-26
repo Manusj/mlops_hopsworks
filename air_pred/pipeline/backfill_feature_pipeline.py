@@ -34,16 +34,17 @@ def backfill_air_quality_data():
                                             primary_key=["date_time_str"],
                                             event_time='date_time')
     expectation_suite = ge.core.ExpectationSuite(expectation_suite_name="cleaned_air_quality_fg")
-    for feature in fg.features:
-        value_not_null(expectation_suite, feature.name)
-    try:
-        fg.save_expectation_suite(expectation_suite, run_validation=True, validation_ingestion_policy="STRICT")
-    except:
-        pass
-    # Must do backfill also
+
     cleneddf = data_preprocessing.clean_data(processed_df)
+
+    for feature in cleneddf.columns:
+        value_not_null(expectation_suite, feature)
+
+    if clean_data_fg.get_expectation_suite is None:
+        clean_data_fg.save_expectation_suite(expectation_suite, run_validation=True, validation_ingestion_policy="STRICT")
+    # Must do backfill also
+
     clean_data_fg.insert(cleneddf, wait=True, write_options={"wait_for_job":True})
-    return fg
 
 if __name__ == "__main__":
     backfill_air_quality_data()

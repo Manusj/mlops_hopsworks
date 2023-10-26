@@ -26,12 +26,11 @@ def update_predictions():
     fv.init_serving(training_dataset_version=1)
 
     try:
-        predication_features = fv.get_batch_data(start_time=prediction_df.date_time_str.iloc[0], end_time = prediction_df.date_time.iloc[-1]+datetime.timedelta(hours=1))
+        predication_features = fv.get_batch_data(start_time=prediction_df.date_time.iloc[0], end_time = prediction_df.date_time.iloc[-1]+datetime.timedelta(hours=1))
     except:
-        predication_features = fv.get_batch_data(start_time=prediction_df.date_time_str.iloc[0], end_time = prediction_df.date_time.iloc[-1]+datetime.timedelta(hours=1), read_options={"use_hive":True})
+        predication_features = fv.get_batch_data(start_time=prediction_df.date_time.iloc[0], end_time = prediction_df.date_time.iloc[-1]+datetime.timedelta(hours=1), read_options={"use_hive":True})
     
-
-    predication_features = predication_features.sort_values('date_time')[predication_features.date_time>=prediction_df.date_time_str.iloc[0]]
+    predication_features = predication_features.sort_values('date_time')[predication_features.date_time.dt.date>=prediction_df.date_time.iloc[0]]
     predication_features = predication_features.drop(["date_time_str", "date_time"],axis = 1).to_numpy().tolist()
 
     ms = project.get_model_serving()
