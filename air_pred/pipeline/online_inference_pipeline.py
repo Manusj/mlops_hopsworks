@@ -2,6 +2,7 @@ import hopsworks
 import datetime
 from air_pred.utils import data_preprocessing
 import numpy as np
+import pandas as pd
 
 def update_predictions():
     project = hopsworks.login(api_key_file="api_key")
@@ -29,8 +30,8 @@ def update_predictions():
         predication_features = fv.get_batch_data(start_time=prediction_df.date_time.iloc[0], end_time = prediction_df.date_time.iloc[-1]+datetime.timedelta(hours=1))
     except:
         predication_features = fv.get_batch_data(start_time=prediction_df.date_time.iloc[0], end_time = prediction_df.date_time.iloc[-1]+datetime.timedelta(hours=1), read_options={"use_hive":True})
-    
-    predication_features = predication_features.sort_values('date_time')[predication_features.date_time.dt.date>=prediction_df.date_time.iloc[0]]
+    predication_features.date_time = pd.to_datetime(predication_features.date_time).dt.tz_localize(None)
+    predication_features = predication_features.sort_values('date_time')[predication_features.date_time>=prediction_df.date_time.iloc[0]]
     predication_features = predication_features.drop(["date_time_str", "date_time"],axis = 1).to_numpy().tolist()
 
     ms = project.get_model_serving()
@@ -40,6 +41,7 @@ def update_predictions():
     prediction_df["predicted_femman_pm25"] = predication.squeeze()
     prediction_df["date_time"] = prediction_df["date_time_str"].apply(data_preprocessing.convert_to_datetime)
     regression_prediction_fg.insert(prediction_df, wait=True, write_options={"wait_for_job":True})
+
 
 if __name__ == "__main__":
     update_predictions()
