@@ -11,6 +11,7 @@ def update_predictions():
     data_fg = fs.get_feature_group("cleaned_air_quality_data")
     regression_prediction_fg = fs.get_feature_group("predicted_air_quality_regression")
 
+    # Query used instead of a feature view since fv creation fails when this is given as a query
     query = data_fg.select_all().\
             join(regression_prediction_fg.select([]), on="date_time", join_type = "left").\
             filter(regression_prediction_fg.predicted_femman_pm25 == None)
@@ -26,10 +27,16 @@ def update_predictions():
     fv = fs.get_feature_view("air_qaulity_baseline_fv", version=1)
     fv.init_serving(training_dataset_version=1)
 
+    prediction_df.date_time = pd.to_datetime(prediction_df.date_time).dt.tz_localize(None)
+    start_time=prediction_df.date_time.iloc[0]
+    # Work around done for bug fix in which start time when given the value 2023-10-27 00:00:00 was returning a empty df
+    if(start_time.hour == 0):
+        start_time = start_time - datetime.timedelta(hours=1)
+    end_time = prediction_df.date_time.iloc[-1]
     try:
-        predication_features = fv.get_batch_data(start_time=prediction_df.date_time.iloc[0], end_time = prediction_df.date_time.iloc[-1]+datetime.timedelta(hours=1))
+        predication_features = fv.get_batch_data(start_time=start_time, end_time = end_time+datetime.timedelta(hours=1))
     except:
-        predication_features = fv.get_batch_data(start_time=prediction_df.date_time.iloc[0], end_time = prediction_df.date_time.iloc[-1]+datetime.timedelta(hours=1), read_options={"use_hive":True})
+        predication_features = fv.get_batch_data(start_time=start_time, end_time = end_time+datetime.timedelta(hours=1), read_options={"use_hive":True})
     predication_features.date_time = pd.to_datetime(predication_features.date_time).dt.tz_localize(None)
     predication_features = predication_features.sort_values('date_time')[predication_features.date_time>=prediction_df.date_time.iloc[0]]
     predication_features = predication_features.drop(["date_time_str", "date_time"],axis = 1).to_numpy().tolist()
@@ -40,6 +47,7 @@ def update_predictions():
 
     prediction_df["predicted_femman_pm25"] = predication.squeeze()
     prediction_df["date_time"] = prediction_df["date_time_str"].apply(data_preprocessing.convert_to_datetime)
+
     regression_prediction_fg.insert(prediction_df, wait=True, write_options={"wait_for_job":True})
 
 
