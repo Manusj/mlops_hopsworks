@@ -11,8 +11,8 @@ def update_predictions():
     project = hopsworks.login(api_key_file="api_key")
 
     fs = project.get_feature_store()
-    data_fg = fs.get_feature_group("cleaned_air_quality_data")
-    regression_prediction_fg = fs.get_feature_group("predicted_air_quality_regression")
+    data_fg = fs.get_feature_group("cleaned_air_quality_data", version=FEAURE_GROUP_VERSION)
+    regression_prediction_fg = fs.get_feature_group("predicted_air_quality_regression", version=FEAURE_GROUP_VERSION)
 
     # Query used instead of a feature view since fv creation fails when this is given as a query
     query = data_fg.select_all().\
