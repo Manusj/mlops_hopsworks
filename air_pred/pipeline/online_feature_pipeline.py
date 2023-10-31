@@ -4,7 +4,7 @@ import hopsworks
 from air_pred.utils import data_preprocessing
 import numpy as np
 
-FEAURE_GROUP_VERSION = 1
+FEAURE_GROUP_VERSION = 2
 project = hopsworks.login(api_key_file="api_key")
 fs = project.get_feature_store()
 

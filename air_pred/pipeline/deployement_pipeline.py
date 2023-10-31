@@ -11,11 +11,11 @@ predictor_script_path = os.path.join("/Projects", project.name, uploaded_file_pa
 
 def deploy_linear_regression_baseline():
     mr = project.get_model_registry()
-    model = mr.get_model("linear_regression_baseline", version=1)
+    model = mr.get_best_model("air_quality_estimation_model", metric="Test MSE", direction='min')
 
     # Give it any name you want
     deployment = model.deploy(
-        name="lrbasedeployment", 
+        name="aqestimatordeployment", 
         serving_tool="KSERVE",
         script_file=predictor_script_path
     )

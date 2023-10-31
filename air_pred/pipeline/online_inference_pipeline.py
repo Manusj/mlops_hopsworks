@@ -4,6 +4,9 @@ from air_pred.utils import data_preprocessing
 import numpy as np
 import pandas as pd
 
+FEAURE_GROUP_VERSION = 2
+TRAINING_DATASET_VERSION = 1
+
 def update_predictions():
     project = hopsworks.login(api_key_file="api_key")
 
@@ -24,8 +27,8 @@ def update_predictions():
         print("No preditions to preform")
         return None
 
-    fv = fs.get_feature_view("air_qaulity_baseline_fv", version=1)
-    fv.init_serving(training_dataset_version=1)
+    fv = fs.get_feature_view("air_qaulity_baseline_fv", version=FEAURE_GROUP_VERSION)
+    fv.init_serving(training_dataset_version=TRAINING_DATASET_VERSION)
 
     prediction_df.date_time = pd.to_datetime(prediction_df.date_time).dt.tz_localize(None)
     start_time=prediction_df.date_time.iloc[0]
@@ -42,7 +45,7 @@ def update_predictions():
     predication_features = predication_features.drop(["date_time_str", "date_time"],axis = 1).to_numpy().tolist()
 
     ms = project.get_model_serving()
-    my_deployment = ms.get_deployment('lrbasedeployment')
+    my_deployment = ms.get_deployment('aqestimatordeployment')
     predication = np.array([my_deployment.predict(inputs=[feature])["predictions"] for feature in predication_features])
 
     prediction_df["predicted_femman_pm25"] = predication.squeeze()

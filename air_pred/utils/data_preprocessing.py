@@ -1,6 +1,8 @@
 import pandas as pd
 import datetime as dt
 from hsfs.feature import Feature
+from sklearn.experimental import enable_iterative_imputer
+from sklearn.impute import IterativeImputer
 
 def convert_to_datetime(date_str : str):
     """Function used to convert a column into data time that contains time value 24:00 to datetime format of pandas
@@ -59,8 +61,8 @@ def remove_nan_features(df : pd.DataFrame) -> pd.DataFrame:
     noisy_features = df.columns[df.isna().sum()/len(df) * 100 > 50].tolist()
     return df.drop(noisy_features, axis=1)
 
-def clean_data(df: pd.DataFrame, features : list = None ) -> pd.DataFrame:
-    """Function to clean dataframe of nan data a simple interplotation stratagy is used for now
+def clean_data_baseline(df: pd.DataFrame, features : list = None ) -> pd.DataFrame:
+    """Function to clean dataframe of nan data a simple interplotation stratagy.
 
     Parameters
     ----------
@@ -80,6 +82,40 @@ def clean_data(df: pd.DataFrame, features : list = None ) -> pd.DataFrame:
         colums = [feature.name for feature in features]
         df = df[colums]
     return df.sort_values('date_time').interpolate()
+
+def clean_data_IterativeImputer(df: pd.DataFrame, features : list = None ) -> pd.DataFrame:
+    """Function to clean dataframe of nan data using IterativeImputer for multi variate feature imputation
+
+    Parameters
+    ----------
+    input_df : pd.DataFrame
+        input dataframe that contains the time and date in seperate columns
+    list : List of Feature object 
+        List of features objects that contains features that must be present in returned dataframe. 
+        Is None if a new feature groups is being created and no current schema exists
+    Returns
+    -------
+    pd.Dataframe
+        converted dataframe that does not contain features with nan data
+    """
+    if features is None:
+        df = remove_nan_features(df)
+    else:
+        colums = [feature.name for feature in features]
+        df = df[colums]
+
+    imputer = IterativeImputer(max_iter=10, random_state=0)
+
+    date_time = df.date_time
+    date_time_str = df.date_time_str
+    df = df.drop(["date_time", "date_time_str"], axis=1)
+
+    df[:] = imputer.fit_transform(df)
+
+    df['date_time'] = date_time
+    df['date_time_str'] = date_time_str
+    
+    return df.sort_values('date_time')
 
 
 def set_feature_type(df, feature_name, feature_type):

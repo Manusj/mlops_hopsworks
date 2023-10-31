@@ -5,7 +5,8 @@ from air_pred.utils import data_preprocessing
 
 project = hopsworks.login(api_key_file="api_key")
 fs = project.get_feature_store()
-FEAURE_GROUP_VERSION = 1
+FEAURE_GROUP_VERSION = 2
+TRAINING_DATA_VERSION = 1
 
 def create_predication_feature_group():
     predicated_regression_fg = fs.get_or_create_feature_group(name="predicted_air_quality_regression",
@@ -26,7 +27,7 @@ def create_predication_feature_view(predicated_regression_fg):
 
 def batch_predict(predicated_regression_fg):
     fv = fs.get_feature_view("air_qaulity_baseline_fv", version=FEAURE_GROUP_VERSION)
-    fv.init_serving(training_dataset_version=1)
+    fv.init_serving(training_dataset_version=TRAINING_DATA_VERSION)
     try:
         predication_features = fv.get_batch_data()
     except:
@@ -43,7 +44,7 @@ def batch_predict(predicated_regression_fg):
     predication_features = predication_features.drop(["date_time", "date_time_str"], axis = 1)
     
     mr = project.get_model_registry()
-    retrieved_model = mr.get_model(name="linear_regression_baseline",version=1)
+    retrieved_model =  mr.get_best_model("air_quality_estimation_model", metric="Test MSE", direction='min')
     saved_model_dir = retrieved_model.download()
 
     lr_model = joblib.load(saved_model_dir + "/linear_regression.pkl")
