@@ -22,6 +22,8 @@ def create_featureView():
                                         labels=['femman_pm25'],
                                        transformation_functions=transformations
                                        )
+    fg = fs.get_feature_group("time_series_air_quality_data", version=FEATURE_GROUP_VERSION)
+    query = fg.select_all()
     ts_fv = fs.get_or_create_feature_view(name="air_qaulity_timeseries_fv",
                                        query=query,
                                        version=FEATURE_GROUP_VERSION,
