@@ -21,5 +21,5 @@ def test_convert_to_datetime(date_str,expected_date):
         ]
 )
 def test_date_time_feature(input_df,nan_count):
-    print(data_preprocessing.clean_data(input_df))
-    assert data_preprocessing.clean_data(input_df).isna().sum().sum() == nan_count
+    print(data_preprocessing.clean_data_baseline(input_df))
+    assert data_preprocessing.clean_data_baseline(input_df).isna().sum().sum() == nan_count
