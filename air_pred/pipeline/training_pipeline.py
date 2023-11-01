@@ -16,24 +16,33 @@ def create_featureView():
     query = fg.select_all()
     transformations = {feature.name: fs.get_transformation_function(name="min_max_scaler") \
                        for feature in fg.features if feature.name not in ['femman_pm25', "date_time", "date_time_str"]}
-    fv = fs.get_or_create_feature_view(name="air_qaulity_baseline_fv",
+    aq_fv = fs.get_or_create_feature_view(name="air_qaulity_baseline_fv",
                                        query=query,
                                        version=FEATURE_GROUP_VERSION,
                                         labels=['femman_pm25'],
                                        transformation_functions=transformations
                                        )
+    ts_fv = fs.get_or_create_feature_view(name="air_qaulity_timeseries_fv",
+                                       query=query,
+                                       version=FEATURE_GROUP_VERSION,
+                                       labels=['femman_pm25'],
+                                       )
 
-    return fv
+    aq_fv.create_train_test_split(test_size=0.3, data_format="csv", description="Basline train test split",write_options={"wait_for_job":True})
+    try:
+        df = fg.read()
+    except:
+        df = fg.read({"use_hive":True})
+    df = df.sort_values('date_time')
+    train_start_date = df.date_time.iloc[0]
+    train_end_date =  df.date_time.iloc[int(0.8*len(df))]
+    test_start_date = df.date_time.iloc[int(0.8*len(df))]
+    test_end_date = df.date_time.iloc[len(df)-1]
+    version, job = ts_fv.create_train_test_split(train_start=train_start_date, train_end=train_end_date,
+                                              test_start=test_start_date, test_end=test_end_date,
+                                              data_format="csv", description="Basline train test split",write_options={"wait_for_job":True})
 
-def create_training_data(fv):
-    fv.create_train_test_split(test_size=0.3, data_format="csv", description="Basline train test split",write_options={"wait_for_job":True})
-    
-
-
-def train_model():
-    project = hopsworks.login(api_key_file="api_key")
-    fs = project.get_feature_store()
-    fv = fs.get_feature_view("air_qaulity_baseline_fv", version=FEATURE_GROUP_VERSION)
+def train_func(project, fv):
     trainX, testX, trainY, testY = fv.get_train_test_split(training_dataset_version=1)
     trainX = trainX.drop(["date_time", "date_time_str"], axis=1)
     testX = testX.drop(["date_time", "date_time_str"], axis=1)
@@ -56,6 +65,16 @@ def train_model():
     model_schema.to_dict()
 
     test_example = testX.iloc[-1]
+
+    return mr, train_error, test_error, test_error, test_example, model_schema
+
+def train_model():
+    project = hopsworks.login(api_key_file="api_key")
+    fs = project.get_feature_store()
+    aq_fv = fs.get_feature_view("air_qaulity_baseline_fv", version=FEATURE_GROUP_VERSION)
+    ts_fv = fs.get_feature_view("air_qaulity_timeseries_fv", version=FEATURE_GROUP_VERSION)
+    
+    mr, train_error, test_error, test_error, test_example, model_schema = train_func(project=project, fv=aq_fv)
     
     model = mr.python.create_model(name="air_quality_estimation_model",
                                    metrics={"Train MSE":train_error, "Test MSE": test_error},
@@ -64,7 +83,15 @@ def train_model():
                                    model_schema=model_schema)
     model.save('./models/linear_regression.pkl')
 
+    mr, train_error, test_error, test_error, test_example, model_schema = train_func(project=project, fv=ts_fv)
+    
+    model = mr.python.create_model(name="air_quality_time_series_model",
+                                   metrics={"Train MSE":train_error, "Test MSE": test_error},
+                                   description="Basline linear regssion model",
+                                   input_example=test_example,
+                                   model_schema=model_schema)
+    model.save('./models/linear_regression.pkl')
+
 if __name__ == "__main__":
     fv = create_featureView()
-    create_training_data(fv)
     train_model()

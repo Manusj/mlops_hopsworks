@@ -24,7 +24,7 @@ def value_not_null(expectation_suite : ge.core.ExpectationSuite , column_name : 
                                         }
                                         ))
 
-def create_and_fill_baseline_fg(fg_raw_data, initial_df, clean_data_fg, expectation_suite_clean_data):
+def create_and_fill_baseline_fg(fg_raw_data, initial_df, clean_data_fg, ts_data_fg, expectation_suite_clean_data):
     """ Function that create baseline feature groups based on the csv dataset provided
     """
     fg_raw_data.insert(initial_df, wait=True, write_options={"wait_for_job":True})
@@ -36,11 +36,16 @@ def create_and_fill_baseline_fg(fg_raw_data, initial_df, clean_data_fg, expectat
     
     if clean_data_fg.get_expectation_suite is None:
         clean_data_fg.save_expectation_suite(expectation_suite_clean_data, run_validation=True, validation_ingestion_policy="STRICT")
-
+        ts_data_fg.save_expectation_suite(expectation_suite_clean_data, run_validation=True, validation_ingestion_policy="STRICT")
+        
     # Insering cleaned data into cleaned_air_quality_data feature group
     clean_data_fg.insert(cleneddf, wait=True, write_options={"wait_for_job":True})
 
-def create_and_fill_iterative_imputer_fg(fg_raw_data, initial_df, clean_data_fg, expectation_suite_clean_data, version=2, use_previous_data = True):
+    tsdf = data_preprocessing.get_time_series_features(clean_data_fg)
+
+    ts_data_fg.insert(tsdf, wait=True, write_options={"wait_for_job":True})
+
+def create_and_fill_iterative_imputer_fg(fg_raw_data, initial_df, clean_data_fg, ts_data_fg, expectation_suite_clean_data, version=2, use_previous_data = True):
     """ Function that create baseline feature groups based on the csv dataset provided
     """
     if use_previous_data:
@@ -63,9 +68,16 @@ def create_and_fill_iterative_imputer_fg(fg_raw_data, initial_df, clean_data_fg,
     
     if clean_data_fg.get_expectation_suite is None:
         clean_data_fg.save_expectation_suite(expectation_suite_clean_data, run_validation=True, validation_ingestion_policy="STRICT")
+    
+    if ts_data_fg.get_expectation_suite is None:
+        ts_data_fg.save_expectation_suite(expectation_suite_clean_data, run_validation=True, validation_ingestion_policy="STRICT")
         
     # Insering cleaned data into cleaned_air_quality_data feature group
     clean_data_fg.insert(cleneddf, wait=True, write_options={"wait_for_job":True})
+
+    tsdf = data_preprocessing.get_time_series_features(cleneddf)
+
+    ts_data_fg.insert(tsdf, wait=True, write_options={"wait_for_job":True})
 
 def backfill_air_quality_data(version=1):
     # creating or getting feature group air_quality_data that contains all raw data
@@ -88,13 +100,21 @@ def backfill_air_quality_data(version=1):
                                             primary_key=["date_time_str"],
                                             event_time='date_time')
     
+    # creating or getting feature group time_series_air_quality_data that contains time series features for femman_pm25
+    ts_data_fg = fs.get_or_create_feature_group(name="time_series_air_quality_data",
+                                            version=version,
+                                            description="Time series features for air quality in Gothenburg",
+                                            online_enabled=True,
+                                            primary_key=["date_time_str"],
+                                            event_time='date_time')
+    
     # creating an expectation suit for cleaned_air_quality_data and adding the expecation that all columns are not null 
     expectation_suite_clean_data = ge.core.ExpectationSuite(expectation_suite_name="cleaned_air_quality_fg")
     
 
     if version == 1:
-        create_and_fill_baseline_fg(fg_raw_data=fg_raw_data, initial_df=initial_df, clean_data_fg=clean_data_fg, expectation_suite_clean_data=expectation_suite_clean_data)
+        create_and_fill_baseline_fg(fg_raw_data=fg_raw_data, initial_df=initial_df, clean_data_fg=clean_data_fg, ts_data_fg=ts_data_fg,  expectation_suite_clean_data=expectation_suite_clean_data)
     elif version == 2:
-        create_and_fill_iterative_imputer_fg(fg_raw_data=fg_raw_data, initial_df=initial_df, clean_data_fg=clean_data_fg, expectation_suite_clean_data=expectation_suite_clean_data, version=2, use_previous_data=True)
+        create_and_fill_iterative_imputer_fg(fg_raw_data=fg_raw_data, initial_df=initial_df, clean_data_fg=clean_data_fg, ts_data_fg=ts_data_fg, expectation_suite_clean_data=expectation_suite_clean_data, version=2, use_previous_data=True)
 if __name__ == "__main__":
     backfill_air_quality_data(version=2)

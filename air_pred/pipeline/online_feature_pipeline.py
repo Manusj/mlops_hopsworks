@@ -3,6 +3,7 @@ import pandas as pd
 import hopsworks
 from air_pred.utils import data_preprocessing
 import numpy as np
+import datetime
 
 FEAURE_GROUP_VERSION = 2
 project = hopsworks.login(api_key_file="api_key")
@@ -25,6 +26,7 @@ def get_weekly_data():
 
 def update_feature_groups():
     fg = fs.get_feature_group(name="air_quality_data", version=FEAURE_GROUP_VERSION)
+    tf_fg = fs.get_feature_group(name="time_series_air_quality_data", version=FEAURE_GROUP_VERSION)
 
     df = pd.DataFrame(get_weekly_data())
     df = df.replace(r'^\s*$', np.nan, regex=True)
@@ -58,10 +60,26 @@ def update_feature_groups():
     clean_data_fg = fs.get_feature_group(name="cleaned_air_quality_data", version=FEAURE_GROUP_VERSION)
     
     # done so that interpolation can work properly
-    cleaned_new_df = data_preprocessing.clean_data(new_df, features=clean_data_fg.features)
-    cleaned_new_df['date_time'] = cleaned_new_df['date_time_str'].apply(data_preprocessing.convert_to_datetime)
-    cleaned_new_df = cleaned_new_df[cleaned_new_df.date_time >= insert_start_date]
+    cleaned_new_df_full = data_preprocessing.clean_data_IterativeImputer(new_df, features=clean_data_fg.features)
+    cleaned_new_df_full['date_time'] = cleaned_new_df_full['date_time_str'].apply(data_preprocessing.convert_to_datetime)
+    cleaned_new_df = cleaned_new_df_full[cleaned_new_df_full.date_time >= insert_start_date]
     clean_data_fg.insert(cleaned_new_df, wait=True, write_options={"wait_for_job":True})
+
+    ## Will be overwritten with actual data
+    
+    start_time = cleaned_new_df_full.date_time.iloc[-1]
+    palceholder = pd.DataFrame(columns=cleaned_new_df_full.columns)
+
+    for i in range(1,25):
+        future_time = start_time+ datetime.timedelta(hours = i)
+        data = [future_time if col == "date_time" else -1 for col in cleaned_new_df_full.columns]
+        palceholder.loc[len(palceholder)] = data 
+
+    palceholder.date_time_str = palceholder.date_time.astype(str)
+    cleaned_new_df_full = pd.concat([cleaned_new_df_full, palceholder]).sort_values("date_time").reset_index()
+    tf_df = data_preprocessing.get_time_series_features(cleaned_new_df_full)
+    tf_fg.insert(tf_df, wait=True, write_options={"wait_for_job":True})
+
 
 if __name__ == "__main__":
     update_feature_groups()

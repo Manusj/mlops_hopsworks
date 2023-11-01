@@ -22,6 +22,17 @@ def deploy_linear_regression_baseline():
     
     deployment.start()
 
+    model = mr.get_best_model("air_quality_time_series_model", metric="Test MSE", direction='min')
+
+    # Give it any name you want
+    deployment = model.deploy(
+        name="aqtsdeployment", 
+        serving_tool="KSERVE",
+        script_file=predictor_script_path
+    )
+    
+    deployment.start()
+
     return deployment
 
 if __name__ == "__main__":
