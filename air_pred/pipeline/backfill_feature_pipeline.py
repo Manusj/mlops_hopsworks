@@ -3,8 +3,9 @@ import hopsworks
 from air_pred.utils import data_preprocessing
 import numpy as np
 import great_expectations as ge
+import hsfs
 
-project = hopsworks.login(api_key_file="api_key")
+project = hopsworks.login()
 fs = project.get_feature_store()
 
 def value_not_null(expectation_suite : ge.core.ExpectationSuite , column_name : list):
@@ -24,9 +25,26 @@ def value_not_null(expectation_suite : ge.core.ExpectationSuite , column_name : 
                                         }
                                         ))
 
-def create_and_fill_baseline_fg(fg_raw_data, initial_df, clean_data_fg, ts_data_fg, expectation_suite_clean_data):
-    """ Function that create baseline feature groups based on the csv dataset provided
+def create_and_fill_baseline_fg(fg_raw_data :hsfs.feature_group.FeatureGroup, initial_df:pd.DataFrame, clean_data_fg:hsfs.feature_group.FeatureGroup, ts_data_fg:hsfs.feature_group.FeatureGroup, expectation_suite_clean_data:ge.core.ExpectationSuite):
+    """ Function that create baseline feature groups based on the csv dataset provided using pandas.interpolte to impute null values
+    Parameters
+    ----------
+    fg_raw_data :  hsfs.feature_group.FeatureGroup
+        Feature Group containing raw and unprocessed data
+
+    initial_df :  pd.DataFrame
+        inital dataframe that is read from the historical data csv file
+
+    clean_data_fg : hsfs.feature_group.FeatureGroup
+        Feature Group containing cleaned data that does not have any null values
+
+    ts_data_fg : hsfs.feature_group.FeatureGroup
+        Feature Group containing cleaned time series features without any null values
+    
+    expectation_suite_clean_data : ge.core.ExpectationSuite
+        Expectation suit for both clean_data_fg and ts_data_fg 
     """
+    
     fg_raw_data.insert(initial_df, wait=True, write_options={"wait_for_job":True})
 
     # cleaning read dataframe
@@ -41,12 +59,36 @@ def create_and_fill_baseline_fg(fg_raw_data, initial_df, clean_data_fg, ts_data_
     # Insering cleaned data into cleaned_air_quality_data feature group
     clean_data_fg.insert(cleneddf, wait=True, write_options={"wait_for_job":True})
 
+    # Creating features for time series prediction
     tsdf = data_preprocessing.get_time_series_features(clean_data_fg)
 
+    #inserting time series features into feature group
     ts_data_fg.insert(tsdf, wait=True, write_options={"wait_for_job":True})
 
-def create_and_fill_iterative_imputer_fg(fg_raw_data, initial_df, clean_data_fg, ts_data_fg, expectation_suite_clean_data, version=2, use_previous_data = True):
-    """ Function that create baseline feature groups based on the csv dataset provided
+def create_and_fill_iterative_imputer_fg(fg_raw_data:hsfs.feature_group.FeatureGroup, initial_df:pd.DataFrame, clean_data_fg:hsfs.feature_group.FeatureGroup,  ts_data_fg:hsfs.feature_group.FeatureGroup, expectation_suite_clean_data:ge.core.ExpectationSuite, version:int=2, use_previous_data:bool = True):
+    """ Function that create feature groups based on multi variate imputation from a given historical csv file or from previous version of feature group
+    Parameters
+    ----------
+    fg_raw_data :  hsfs.feature_group.FeatureGroup
+        Feature Group containing raw and unprocessed data
+
+    initial_df :  pd.DataFrame
+        inital dataframe that is read from the historical data csv file
+
+    clean_data_fg : hsfs.feature_group.FeatureGroup
+        Feature Group containing cleaned data that does not have any null values
+
+    ts_data_fg : hsfs.feature_group.FeatureGroup
+        Feature Group containing cleaned time series features without any null values
+    
+    expectation_suite_clean_data : ge.core.ExpectationSuite
+        Expectation suit for both clean_data_fg and ts_data_fg 
+
+    version : int 
+        Version of newly created feature group
+    
+    use_previous_data : bool
+        if set true then use the previous version of the feature group to fill the newly created feature group
     """
     if use_previous_data:
         try:
@@ -80,6 +122,12 @@ def create_and_fill_iterative_imputer_fg(fg_raw_data, initial_df, clean_data_fg,
     ts_data_fg.insert(tsdf, wait=True, write_options={"wait_for_job":True})
 
 def backfill_air_quality_data(version=1):
+    """
+    Wrapper function that checks the version of the feature group and call the appropriate function 
+
+    version : int
+        Version of newly created feature group
+    """
     # creating or getting feature group air_quality_data that contains all raw data
     fg_raw_data = fs.get_or_create_feature_group(name="air_quality_data",
                                         version=version,

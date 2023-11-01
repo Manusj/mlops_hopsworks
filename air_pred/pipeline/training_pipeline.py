@@ -10,7 +10,8 @@ FEATURE_GROUP_VERSION = 2
 TRAIN_DATA_VERSION = 1
 
 def create_featureView():
-    project = hopsworks.login(api_key_file="api_key")
+    """Fuctio to create feature view that are required to read data while training"""
+    project = hopsworks.login()
     fs = project.get_feature_store()
     fg = fs.get_feature_group("cleaned_air_quality_data", version=FEATURE_GROUP_VERSION)
     query = fg.select_all()
@@ -31,6 +32,7 @@ def create_featureView():
                                        )
 
     aq_fv.create_train_test_split(test_size=0.3, data_format="csv", description="Basline train test split",write_options={"wait_for_job":True})
+    # Creating train test set based on periodic data for time series
     try:
         df = fg.read()
     except:
@@ -45,18 +47,25 @@ def create_featureView():
                                               data_format="csv", description="Basline train test split",write_options={"wait_for_job":True})
 
 def train_func(project, fv):
+    """ Function that is used to train a linear regresion model
+    """
+    # train test get from feature view
     trainX, testX, trainY, testY = fv.get_train_test_split(training_dataset_version=1)
     trainX = trainX.drop(["date_time", "date_time_str"], axis=1)
     testX = testX.drop(["date_time", "date_time_str"], axis=1)
+
+    # training model
     reg = LinearRegression().fit(trainX, trainY)
 
+    # calculating errors
     pred_train = reg.predict(trainX)
     train_error = mean_squared_error(pred_train,trainY)
     pred_test = reg.predict(testX)
     test_error = mean_squared_error(pred_test,testY)
 
     print(f'Train MSE : {train_error}, Test MSE : {test_error}')
-
+    
+    # savning model to model registry 
     mr = project.get_model_registry()
     joblib.dump(reg, './models/linear_regression.pkl')
 
@@ -71,11 +80,13 @@ def train_func(project, fv):
     return mr, train_error, test_error, test_error, test_example, model_schema
 
 def train_model():
-    project = hopsworks.login(api_key_file="api_key")
+    """Wrapper function that triggers train_func and trains both the models for prediction and estimation"""
+    project = hopsworks.login()
     fs = project.get_feature_store()
     aq_fv = fs.get_feature_view("air_qaulity_baseline_fv", version=FEATURE_GROUP_VERSION)
     ts_fv = fs.get_feature_view("air_qaulity_timeseries_fv", version=FEATURE_GROUP_VERSION)
     
+    # Train estimation model 
     mr, train_error, test_error, test_error, test_example, model_schema = train_func(project=project, fv=aq_fv)
     
     model = mr.python.create_model(name="air_quality_estimation_model",
@@ -85,6 +96,7 @@ def train_model():
                                    model_schema=model_schema)
     model.save('./models/linear_regression.pkl')
 
+    # train prediction model
     mr, train_error, test_error, test_error, test_example, model_schema = train_func(project=project, fv=ts_fv)
     
     model = mr.python.create_model(name="air_quality_time_series_model",
