@@ -117,6 +117,14 @@ def clean_data_IterativeImputer(df: pd.DataFrame, features : list = None ) -> pd
     
     return df.sort_values('date_time')
 
+def get_time_series_features(df):
+    tsdf = df[['date_time','date_time_str','femman_pm25']].sort_values("date_time")
+    tsdf = tsdf.set_index('date_time', drop=False)
+    tsdf["prev_day"] = tsdf.femman_pm25.shift(periods=24)
+    tsdf["prev_week"] = tsdf.femman_pm25.shift(periods=168)
+    tsdf = tsdf.dropna()
+    return tsdf
+
 
 def set_feature_type(df, feature_name, feature_type):
     if feature_type == "double":
